@@ -1,0 +1,40 @@
+---
+title: "CMSC320_Final"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(readxl)
+```
+
+```{r step_1}
+data <- read_excel("C:/Users/Alan Cheng/Desktop/Fortune 500 US List 2019_Someka V1.xlsx", skip = 6)
+
+data <- data[-1,]
+
+colnames(data)[1] <- "rank"
+colnames(data)[2] <- "company_name"
+colnames(data)[3] <- "num_employees"
+colnames(data)[4] <- "rank_change"
+colnames(data)[5] <- "revenue"
+colnames(data)[6] <- "revenue_change"
+colnames(data)[7] <- "profit"
+colnames(data)[8] <- "profit_change"
+colnames(data)[9] <- "assets"
+colnames(data)[10] <- "market_value"
+
+data$rank <- as.numeric(data$rank)
+data$num_employees <- as.numeric(data$num_employees)
+data$rank_change <- as.numeric(data$rank_change)
+data$revenue <- as.numeric(data$revenue)
+data$revenue_change <- as.numeric(data$revenue_change)
+data$profit <- as.numeric(data$profit)
+data$profit_change <- as.numeric(data$profit_change)
+data$assets <- as.numeric(data$assets)
+data$market_value <- as.numeric(data$market_value)
+
+data
+```
