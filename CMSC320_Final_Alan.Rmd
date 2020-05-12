@@ -20,8 +20,7 @@ With the Fortune 500 companies having such a significant impact on the national 
 
 To further analyze the Fortune 500 list, we attempted to answer the following question:
 
-1. Is there a relationship between a companies ranking/revenue and their number of employees, profit, assets, and/or market value?
-2. Can we predict a
+Is there a relationship between a companies ranking/revenue and their number of employees, profit, assets, and/or market value?
 
 ### Data Overview
 
