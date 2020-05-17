@@ -1,0 +1,199 @@
+---
+title: "Fortune 500 Analysis: What Makes a Company Successful?"
+author: "By: Alan Cheng, Chris Desrochers, Sam LeDoux"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+```
+
+### Background and Motivation
+
+Fortune Magazine's [Fortune 500 list](https://fortune.com/fortune500/) is a ranking of the 500 largest public and private United States corporations based on their total revenues per fiscal year. This list includes some of the most well known companies in the United States, such as Walmart, Microsoft, and FedEx. Additionally, the 2019 Fortune 500 companies represent about two-thirds of the entire United State's Gross Domestic Product, adding up to a total revenue of $13.7 trillion, total profits of $1.1 trillion, and total market value of $22.5 trillion. These 500 companies alone also contribute to 17% of the gross world product and employ 28.7 million people across the world, 0.4% of the Earth's total population. 
+
+With the Fortune 500 companies having such a significant impact on the national and global economies, we were interested in further analyzing these companies' financial data and explore what factors made them so successful. Specifically, we wanted to identify trends among more successful companies and if a company's revenue correlates with its number of employees, profits, assets, and/or market_value. Ultimately, our analysis would help us to better identify what other factors may affect or correlate with a company's revenue, thereby impacting their ranking on the Fortune 500 list.
+
+### Analysis Questions
+
+To further analyze the Fortune 500 list, we attempted to answer the following question:
+
+Is there a relationship between a companies ranking/revenue and their number of employees, profit, assets, and/or market value?
+
+### Data Overview
+
+We used a dataset of 2019 Fortune 500 company information retrieved from someka.net. This dataset includes the following information for each company:
+
+* Rank
+* Company Name
+* Number of Employees
+* Rank Change (compared to the previous fiscal year)
+* Revenue
+* Revenue Change (compared to the previous fiscal year)
+* Profit
+* Profit Change (compared to the previous fiscal year)
+* Assets
+* Market Value as of the end of the 2019 fiscal year (March 31, 2019)
+
+You can read more about the dataset [here](https://www.someka.net/excel-template/fortune-500-excel-list/).
+
+## Part 1: Data Collection
+
+We first need to download the excel spreadsheet of our dataset from the someka.net website. Then, we have to import the spreadsheet into RStudio so we can perform analysis on the data.
+
+Before we begin importing the excel data, we need to ensure that all of the required libraries are loaded.
+
+```{r get_libraries}
+library(tidyverse)
+library(readxl)
+```
+
+The [tidyverse](https://www.tidyverse.org/) library is a collection of R packages that are crucial for data science. This library includes [ggplot2](https://ggplot2.tidyverse.org/), [dplyr](https://dplyr.tidyverse.org/), [tidyr](https://tidyr.tidyverse.org/), [readr](https://readr.tidyverse.org/), [purrr](https://purrr.tidyverse.org/), [tibble](https://tibble.tidyverse.org/), [stringr](https://stringr.tidyverse.org/), and [forcats](https://forcats.tidyverse.org/) packages which are used to model, transform, and visualize data. The [readxl](https://readxl.tidyverse.org/) package allows us to read data from excel files.
+
+The following code reads the data from the Microsoft excel file into a dataframe, a two-dimensional table. The excel file has some formatting and extraneous information in the first few rows, so we use the "skip = 6" option to skip over these irrelevant rows and start reading information from the seventh line where the actual data begins. The "New Names: ..." problem just signifies that some columns did not have any headers or column names so it auto-filled header names for these columns.
+
+```{r read_file}
+fortune_500_data <- read_excel("C:/Users/sjled/Documents/College/Intro to Data Science/Fortune 500 US List 2019_Someka V1.xlsx", skip = 6)
+fortune_500_data
+```
+
+## Part 2: Data Processing
+
+As we can see in the initial dataframe, the column header names are random and meaningless. Also, we can that the column headers from the excel table were read into the first row of the dataframe. To tidy the data and make the dataframe easier to understand, we first rename all of the columns header with proper descriptive names, and then remove the first row as it is supposed to be a header and is not actual data.
+```{r renaming}
+# Renaming each column
+colnames(fortune_500_data)[1] <- "rank"
+colnames(fortune_500_data)[2] <- "company_name"
+colnames(fortune_500_data)[3] <- "num_employees"
+colnames(fortune_500_data)[4] <- "rank_change"
+colnames(fortune_500_data)[5] <- "revenue"
+colnames(fortune_500_data)[6] <- "revenue_change"
+colnames(fortune_500_data)[7] <- "profit"
+colnames(fortune_500_data)[8] <- "profit_change"
+colnames(fortune_500_data)[9] <- "assets"
+colnames(fortune_500_data)[10] <- "market_value"
+
+# Remove the first row of the dataframe
+fortune_500_data <- fortune_500_data[-1,]
+fortune_500_data
+```
+
+Now that our data is organized, we can see that all the data is formatted as characters, but some columns only have numbers and should be formatted as numerical values. So, the data type for certain columns needs to be corrected in order for us to effectively analyze the data later on. As such, we need to convert all numerical data from characters into numerical values (i.e. integers and floats).
+```{r typing}
+# Convert the rank, num_employees, rank_change, revenue, revenue_change, profit, profit_change, assets, and market_value columns to numerical values.
+fortune_500_data$rank <- as.numeric(fortune_500_data$rank)
+fortune_500_data$num_employees <- as.numeric(fortune_500_data$num_employees)
+fortune_500_data$rank_change <- suppressWarnings(as.numeric(fortune_500_data$rank_change))
+fortune_500_data$revenue <- as.numeric(fortune_500_data$revenue)
+fortune_500_data$revenue_change <- suppressWarnings(as.numeric(fortune_500_data$revenue_change))
+fortune_500_data$profit <- as.numeric(fortune_500_data$profit)
+fortune_500_data$profit_change <- suppressWarnings(as.numeric(fortune_500_data$profit_change))
+fortune_500_data$assets <- as.numeric(fortune_500_data$assets)
+fortune_500_data$market_value <- suppressWarnings(as.numeric(fortune_500_data$market_value))
+
+fortune_500_data
+```
+
+Looking at the dataframe, we can see there are rows with NA values for certain attributes. The NA values for rank_change signify no change in ranking from the previous year, so we can replace all of those NA values with 0. However, the other NA values, such as those in the profit_change and market_value columns, cannot be replaced with reasonable values. As such, we can remove rows with NA values for profit_change or market_value since they will not be useful for our analysis.
+```{r fix_values}
+# Replace NA values in rank_change column with 0
+fortune_500_data$rank_change <- replace_na(fortune_500_data$rank_change, 0)
+
+# Remove all rows with NA values
+fortune_500_data <- na.omit(fortune_500_data)
+
+fortune_500_data
+```
+
+Now, our data is ready for the next step of the data science pipeline: Exploratory Analysis and Data Visualization.
+
+
+## Part 3 Exploratory Analysis and Data Visualization
+
+Now that we've seen the data organized into tables, we're going to want to get a better understanding of what that data all really means, and what relationships we can find in it. First we'll take a look at the really basic aspects of our dataset - things like measures of central tendency, trends, distributions, etc. In particular, since we're going to be focusing so much on Revenue, let's explore and analyze the Revenue of Fortune 500 companies first. 
+
+```{r data_analysis}
+# Look at the distribution of the Revenue 
+fortune_500_data%>%ggplot(aes(x = revenue)) + geom_histogram(bins = 125)
+# Basic data about Revenue - mean, median, etc
+summary(fortune_500_data$revenue)
+# We can see the skew by comparing the differences in quartiles
+fortune_500_data %>%
+  summarize(med_rev = median(revenue), q1_rev = quantile(revenue, 1/4),
+            q3_rev = quantile(revenue, 3/4)) %>%
+  mutate(q1_diff = med_rev - q1_rev, q3_diff = q3_rev - med_rev) %>%
+  select(q1_diff, q3_diff)
+
+```
+
+Now that we've looked at the distribtuion of the Revenue data, and looked at its summary, we can start to notice something. Since the distribution chart peeks so far to the left, and trails off to the right, we word suspect that the data has a rightward skew. The summary table backs this up - the mean (the average of the Revenue variable) is over two times larger than the median, this is a trait associated with skewed data. What this suggest is that the revenus data is primarily distributed at the lowed values, and outliers laying to the right will greatly affect any analysis we attempt to make, skewing our data and making our results innacurate. Our second table confirms this skew, as the quartile difference is massive - a 2:1 ration between the sizes of quartile 3 and quartile 1. Next we perform measures to confirm that these are in fact outliers, and if so, do something about it.
+
+```{r summary_stats}
+# Tukey Outlier Code
+outlier_df <- fortune_500_data %>%
+  summarize(q1=quantile(revenue, 1/4), q3=quantile(revenue, 3/4), iqr=IQR(revenue)) %>%
+  slice(rep(1, 2)) %>%
+  mutate(multiplier = c(1.5, 3)) %>%
+  mutate(lower_outlier_limit = q1 - multiplier * iqr) %>%
+  mutate(upper_outlier_limit = q3 + multiplier * iqr)
+
+#Plotting the Tukey Outlier Data
+fortune_500_data %>%
+  ggplot(aes(x=revenue)) +
+    geom_histogram(bins=125) +
+    geom_vline(aes(xintercept=lower_outlier_limit), data=outlier_df, color="red") +
+    geom_vline(aes(xintercept=upper_outlier_limit), data=outlier_df, color="red") + labs(title  = "Tukey Outlier Plot")
+
+# Calculating and plotting Standard deviations
+sds_plot <- seq(0,11)
+sd_df <- fortune_500_data %>%
+  summarize(mean_rev = mean(revenue), sd_rev = sd(revenue)) %>%
+  slice(rep_along(sds_plot, 1)) %>%
+  mutate(sd_to_plot=sds_plot) %>%
+  mutate(sd_val = mean_rev + sd_to_plot * sd_rev)
+
+fortune_500_data %>%
+ggplot(aes(x=revenue)) + 
+    geom_histogram(bins=125) +
+    geom_vline(aes(xintercept=mean(revenue)), col="red", size=2) +
+    geom_vline(aes(xintercept = sd_val), data=sd_df,
+               linetype=3, size=.8) + labs(title = "Standard Deviation Plot")
+
+```
+
+These plots show how skewed the dataset is - the red lines in the Tukey plot show that a large portion of dating representing higher revenues is well beyond what could be considered outliers. Companies such as Walmart make so much in revenue that trying to analyze any trends with them in the dataset will likely make our analyses wildly innacurate. The Standard Deviation Plot shows thatmany of the Fortune 500 companies are several standard deviations away from the mean, Walmart lying over TEN standard deviations away. For our basic analysis in this section, we have decided to disregard data outside of 3 standard deviations as over 99% of data would be normally expected to fall within those bounds. In this case, that would companies with a value over 167653.8 as their revenue will not be charted below.
+
+```{r purging_outliers}
+rev_cutoff = mean(fortune_500_data$revenue) + 3 * sd(fortune_500_data$revenue)
+fort_no_ol <- fortune_500_data
+fort_no_ol$fixed_rev <-
+  ifelse(fortune_500_data$revenue>rev_cutoff, NA, fortune_500_data$revenue)
+fort_no_ol <- na.omit(fort_no_ol)
+fort_no_ol
+```
+
+To get a basic understanding of the trends in our data, we'll first just look at some scatterplots of the basic information. We wanted to see how the number of employees, profit, assets, and market value affect the revenue of the businesses in the Fortune 500. Since the revenue is the value we want to see change, that will be the y value for each chart, and each independent variable given will be the x in its own respective chart. We will also generate a line of best fit for each graph to get a general idea of how each variable relates to the Revenue data. This will offer us additional understanding of these factors may change over time.
+
+```{r basic_plot_data}
+#Create employee plot
+fort_no_ol%>%arrange(revenue)%>%
+  ggplot(aes(x = num_employees, y = fixed_rev)) + geom_point()+ geom_smooth(method = lm) + labs(title = "Number of Employee vs Revenue", x = "Number of Employees", y = "Revenue")
+#Create profit plot
+fort_no_ol%>%
+  ggplot(aes(x = profit, y = fixed_rev)) + geom_point()+ geom_smooth(method = lm) + labs(title = "Profit vs Revenue", x = "Profit", y = "Revenue")
+#Create asset plot
+fort_no_ol%>%
+  ggplot(aes(x = assets, y = fixed_rev)) + geom_point()+ geom_smooth(method = lm)+ labs(title = "Assets vs Revenue", x = "Assets", y = "Revenue")
+#Create market plot
+fort_no_ol%>%
+  ggplot(aes(x = market_value, y = fixed_rev)) + geom_point()+ geom_smooth(method = lm)+ labs(title = "Market Value vs Revenue", x = "Market Value", y = "Revenue")
+
+```
+
+Looking at the graphs and their lines of best fit, Profit and Number of Employees seem to be the variables most correlated with revenue, but we'll explore that beyond eye-balling in the following sections. 
+
+
+
+
