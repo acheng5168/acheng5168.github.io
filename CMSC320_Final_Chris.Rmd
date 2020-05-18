@@ -1,0 +1,171 @@
+---
+title: 'Fortune 500 Analysis: What Makes a Company Successful?'
+author: 'By: Alan Cheng, Chris Desrochers, Sam LeDoux'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(tidyverse))
+suppressMessages(library(readxl))
+suppressMessages(library(lubridate))
+suppressMessages(library(randomForest))
+suppressMessages(library(broom))
+suppressMessages(library(caret))
+```
+
+### Background and Motivation
+
+Fortune Magazine's [Fortune 500 list](https://fortune.com/fortune500/) is a ranking of the 500 largest public and private United States corporations based on their total revenues per fiscal year. This list includes some of the most well known companies in the United States, such as Walmart, Microsoft, and FedEx. Additionally, the 2019 Fortune 500 companies represent about two-thirds of the entire United State's Gross Domestic Product, adding up to a total revenue of $13.7 trillion, total profits of $1.1 trillion, and total market value of $22.5 trillion. These 500 companies alone also contribute to 17% of the gross world product and employ 28.7 million people across the world, 0.4% of the Earth's total population. 
+
+With the Fortune 500 companies having such a significant impact on the national and global economies, we were interested in further analyzing these companies' financial data and explore what factors made them so successful. Specifically, we wanted to identify trends among more successful companies and if a company's revenue correlates with its number of employees, profits, assets, and/or market_value. Ultimately, our analysis would help us to better identify what other factors may affect or correlate with a company's revenue, thereby impacting their ranking on the Fortune 500 list.
+
+### Analysis Questions
+
+To further analyze the Fortune 500 list, we attempted to answer the following question:
+
+Is there a relationship between a companies ranking/revenue and their number of employees, profit, assets, and/or market value?
+
+### Data Overview
+
+We used a dataset of 2019 Fortune 500 company information retrieved from someka.net. This dataset includes the following information for each company:
+
+* Rank
+* Company Name
+* Number of Employees
+* Rank Change (compared to the previous fiscal year)
+* Revenue
+* Revenue Change (compared to the previous fiscal year)
+* Profit
+* Profit Change (compared to the previous fiscal year)
+* Assets
+* Market Value as of the end of the 2019 fiscal year (March 31, 2019)
+
+You can read more about the dataset [here](https://www.someka.net/excel-template/fortune-500-excel-list/).
+
+## Part 1: Data Collection
+
+We first need to download the excel spreadsheet of our dataset from the someka.net website. Then, we have to import the spreadsheet into RStudio so we can perform analysis on the data.
+
+Before we begin importing the excel data, we need to ensure that all of the required libraries are loaded.
+
+```{r get_libraries}
+library(tidyverse)
+library(readxl)
+```
+
+The [tidyverse](https://www.tidyverse.org/) library is a collection of R packages that are crucial for data science. This library includes [ggplot2](https://ggplot2.tidyverse.org/), [dplyr](https://dplyr.tidyverse.org/), [tidyr](https://tidyr.tidyverse.org/), [readr](https://readr.tidyverse.org/), [purrr](https://purrr.tidyverse.org/), [tibble](https://tibble.tidyverse.org/), [stringr](https://stringr.tidyverse.org/), and [forcats](https://forcats.tidyverse.org/) packages which are used to model, transform, and visualize data. The [readxl](https://readxl.tidyverse.org/) package allows us to read data from excel files.
+
+The following code reads the data from the Microsoft excel file into a dataframe, a two-dimensional table. The excel file has some formatting and extraneous information in the first few rows, so we use the "skip = 6" option to skip over these irrelevant rows and start reading information from the seventh line where the actual data begins. The "New Names: ..." problem just signifies that some columns did not have any headers or column names so it auto-filled header names for these columns.
+
+```{r read_file}
+fortune_500_data <- read_excel("C:/Users/Chris/Documents/Courses/Spring 2020/CMSC320/Final Project/Fortune 500 US List 2019_Someka V1.xlsx", skip = 6)
+fortune_500_data
+```
+
+## Part 2: Data Processing
+
+As we can see in the initial dataframe, the column header names are random and meaningless. Also, we can that the column headers from the excel table were read into the first row of the dataframe. To tidy the data and make the dataframe easier to understand, we first rename all of the columns header with proper descriptive names, and then remove the first row as it is supposed to be a header and is not actual data.
+```{r renaming}
+# Renaming each column
+colnames(fortune_500_data)[1] <- "rank"
+colnames(fortune_500_data)[2] <- "company_name"
+colnames(fortune_500_data)[3] <- "num_employees"
+colnames(fortune_500_data)[4] <- "rank_change"
+colnames(fortune_500_data)[5] <- "revenue"
+colnames(fortune_500_data)[6] <- "revenue_change"
+colnames(fortune_500_data)[7] <- "profit"
+colnames(fortune_500_data)[8] <- "profit_change"
+colnames(fortune_500_data)[9] <- "assets"
+colnames(fortune_500_data)[10] <- "market_value"
+
+# Remove the first row of the dataframe
+fortune_500_data <- fortune_500_data[-1,]
+fortune_500_data
+```
+
+Now that our data is organized, we can see that all the data is formatted as characters, but some columns only have numbers and should be formatted as numerical values. So, the data type for certain columns needs to be corrected in order for us to effectively analyze the data later on. As such, we need to convert all numerical data from characters into numerical values (i.e. integers and floats).
+```{r typing}
+# Convert the rank, num_employees, rank_change, revenue, revenue_change, profit, profit_change, assets, and market_value columns to numerical values.
+fortune_500_data$rank <- as.numeric(fortune_500_data$rank)
+fortune_500_data$num_employees <- as.numeric(fortune_500_data$num_employees)
+fortune_500_data$rank_change <- suppressWarnings(as.numeric(fortune_500_data$rank_change))
+fortune_500_data$revenue <- as.numeric(fortune_500_data$revenue)
+fortune_500_data$revenue_change <- suppressWarnings(as.numeric(fortune_500_data$revenue_change))
+fortune_500_data$profit <- as.numeric(fortune_500_data$profit)
+fortune_500_data$profit_change <- suppressWarnings(as.numeric(fortune_500_data$profit_change))
+fortune_500_data$assets <- as.numeric(fortune_500_data$assets)
+fortune_500_data$market_value <- suppressWarnings(as.numeric(fortune_500_data$market_value))
+
+fortune_500_data
+```
+
+Looking at the dataframe, we can see there are rows with NA values for certain attributes. The NA values for rank_change signify no change in ranking from the previous year, so we can replace all of those NA values with 0. However, the other NA values, such as those in the profit_change and market_value columns, cannot be replaced with reasonable values. As such, we can remove rows with NA values for profit_change or market_value since they will not be useful for our analysis.
+```{r fix_values}
+# Replace NA values in rank_change column with 0
+fortune_500_data$rank_change <- replace_na(fortune_500_data$rank_change, 0)
+
+# Remove all rows with NA values
+fortune_500_data <- na.omit(fortune_500_data)
+
+fortune_500_data
+```
+
+Now, our data is ready for the next step of the data science pipeline: Exploratory Analysis and Data Visualization.
+
+## Part 4: Machine Learning
+
+We will now use a random forest to attempt to find a regression that describes company revenue based upon the number of employees, profit, assets, and the market value. Our goal will be to train a model, analyze each individual variable's importance to the final model, and finally evaluate the model both visually and quantitatively.
+
+In this first section, we will create two sets of data from our main fortune 500 dataframe, one of which will be used to train the model and one of which will be used to evaluate it. We do this by sampling half of the data, and putting it into train_set, and then storing the fortune 500 dataframe without those sampled entities into test_set.
+
+Using the training set, we train the random forest on a linear regression model using the following base equation:
+  revenue = num_employees + profit + assets + market_value
+
+Of course there are constants that will be learned in front of each of the independent variables, but we did not show them in the above formula.
+```{r}
+set.seed(1234)
+train_indices <- sample(nrow(fortune_500_data), nrow(fortune_500_data)/2)
+train_set <- fortune_500_data[train_indices,]
+test_set <- fortune_500_data[-train_indices,]
+
+fortune_500_rf <- randomForest(revenue~num_employees+profit+assets+market_value, importance=TRUE, mtry=3, data=train_set)
+```
+
+Once the model has been created and trained, we look at the importance of each independent variable on the final graph. %IncMSE is a measure of how much the mean squared error increased when that specific variable was assigned randomized values. A higher %IncMSE thus means a variable is more important, because replacing it with random values resulted in a higher decrease in the performance of our model.
+
+```{r}
+round(importance(fortune_500_rf), 2)
+```
+
+We will now look at the predictions our model makes on the testing set, by asking the model to predict the revenue of the entities in test_set, forming it as a dataframe, and then cleaning up  the attribute name before adding it to the test_set dataframe.
+
+```{r}
+test_predict <- as.data.frame(predict(fortune_500_rf, test_set)) %>% rename(predicted_revenue = "predict(fortune_500_rf, test_set)")
+test_set$predicted_revenue = test_predict$predicted_revenue
+```
+
+We now graph the revenue of each entity in the test_set in red, along with the predicted revenue for each entity in blue.
+
+```{r}
+ggplot(test_set, mapping = aes(x=rank)) + geom_point(aes(y=revenue), color="red") + geom_point(aes(y=predicted_revenue), color="blue") + labs(title = "Rank vs True Revenue and Predicted Revenue", x = "Rank", y = "Revenue")
+```
+
+Looking at the graph, it seems like the model is doing a mediocre job of fitting the data. It does not seem very tight to the true distrobution, but it does somewhat follow the exponential decay-like form of the true data.
+
+To quantitatively evaluate our model, we could look at mean squared error, but to make this value easier to interpret, we will look at the mean percent error. This will measure the average difference between the true value and our prediction divided by the true value. In other words, we are comparing the error of our model to the true value to get a better idea of how far off it is, because since our revenue values are somewhat high in order of magnitude, we could have a decently high mean square error that still indicates a solid regression.
+
+```{r}
+average_error_percent <- mean(abs(test_set$revenue - test_set$predicted_revenue)/test_set$revenue)
+average_error_percent
+```
+
+This value seems to confirm that our regression is not doing a phenomenal job of fitting the data. On average, our predictions were about 55% off from the true values, which is not a high accuracy at all.
+
+Though this model was not successful, models using other forms of regression could be investigated to possibly accomplish our task of predicting a company's revenue based upon these factors.
+
+
+## Part 5: Conclusions
+Despite the lack of success in predicting revenue using our model, we were still able to learn about the distrobution of companies using this dataset. We saw that the data was largely positively skewed, which likely contributed to the difficulty we experienced in regressing the data. We also saw that each of the individual independent variables did not seem to have a correlation with the learned attribute, which was reflected in the low importance values we saw from the random forest.
