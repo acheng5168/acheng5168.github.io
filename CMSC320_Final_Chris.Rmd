@@ -11,9 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 suppressMessages(library(tidyverse))
 suppressMessages(library(readxl))
 suppressMessages(library(lubridate))
+```
+
+Here we include our libraries. RandomForest includes the functions needed for making and training the random forest model.
+```{r}
 suppressMessages(library(randomForest))
-suppressMessages(library(broom))
-suppressMessages(library(caret))
 ```
 
 ### Background and Motivation
@@ -164,18 +166,17 @@ average_error_percent
 
 This value seems to confirm that our regression is not doing a phenomenal job of fitting the data. On average, our predictions were about 55% off from the true values, which is not a high accuracy at all.
 
-Though this model was not successful, models using other forms of regression could be investigated to possibly accomplish our task of predicting a company's revenue based upon these factors.
+Though this model was not successful, we will use a simple linear regression to further test our hypothesis that there is a relationship between revenue and these other attributes.
 
+We now conduct a linear regression and look at the estimates for the correlations between each attribute and revenue, and their respective p-values.
 ```{r}
 linreg <- lm(revenue~num_employees+profit+assets+market_value, data=fortune_500_data)
-ggplot(test_set, mapping = aes(x=rank)) + geom_point(aes(y=predicted_revenue), color="red") + geom_point(aes(y=predict(linreg, test_set)), color="blue") + labs(title = "Rank vs True Revenue and Predicted Revenue", x = "Rank", y = "Revenue")
-
+tidy(linreg)
 ```
 
-```{r}
-average_error_percent2 <- mean(abs(test_set$revenue - predict(linreg, test_set))/test_set$revenue)
-average_error_percent2
-```
+All of the regressions resulted in p-values below the alpha threshold of 0.05. Thus, there is a statistically significant relationship between each of the variables and revenue. On average, a company's revenue will increase by about $200,000 per employee, $1.7 million per $1 million increase in profits, $17,600 per $1 million of assets, and about $100,000 per $1 million of market value.
 
 ## Part 5: Conclusions
-Despite the lack of success in predicting revenue using our model, we were still able to learn about the distrobution of companies using this dataset. We saw that the data was largely positively skewed, which likely contributed to the difficulty we experienced in regressing the data. We also saw that each of the individual independent variables did not seem to have a correlation with the learned attribute, which was reflected in the low importance values we saw from the random forest.
+Despite the lack of success in predicting revenue using our model using the random forest, we were still able to learn about the distrobution of companies using this dataset. We saw that the data was largely positively skewed, which likely contributed to the difficulty we experienced in regressing the data. We also saw that each of the individual independent variables did not seem to have a correlation with the learned attribute, which was reflected in the low importance values we saw from the random forest.
+
+It may seem contradictory that the mean percent error was so high, yet the linear regression was able to reject the null hypothesis. However, this makes sense because we saw that the dataset was largely jittery and varied, which would contribute to high error, despite a model being able to relatively well predict revenue, considering the variance in the orginial dataset.
