@@ -166,6 +166,16 @@ This value seems to confirm that our regression is not doing a phenomenal job of
 
 Though this model was not successful, models using other forms of regression could be investigated to possibly accomplish our task of predicting a company's revenue based upon these factors.
 
+```{r}
+linreg <- lm(revenue~num_employees+profit+assets+market_value, data=fortune_500_data)
+ggplot(test_set, mapping = aes(x=rank)) + geom_point(aes(y=predicted_revenue), color="red") + geom_point(aes(y=predict(linreg, test_set)), color="blue") + labs(title = "Rank vs True Revenue and Predicted Revenue", x = "Rank", y = "Revenue")
+
+```
+
+```{r}
+average_error_percent2 <- mean(abs(test_set$revenue - predict(linreg, test_set))/test_set$revenue)
+average_error_percent2
+```
 
 ## Part 5: Conclusions
 Despite the lack of success in predicting revenue using our model, we were still able to learn about the distrobution of companies using this dataset. We saw that the data was largely positively skewed, which likely contributed to the difficulty we experienced in regressing the data. We also saw that each of the individual independent variables did not seem to have a correlation with the learned attribute, which was reflected in the low importance values we saw from the random forest.
